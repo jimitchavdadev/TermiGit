@@ -1,24 +1,21 @@
 // src/git.rs
 
 use crate::types::{commit_info::CommitInfo, status_info::StatusInfo};
-use git2::{self, Commit, DiffFormat, Repository, Sort};
+use git2::{self, Commit, Repository, Sort};
 use std::env;
 use std::path::Path;
 use tui::style::{Color, Style};
 use tui::text::{Span, Spans};
 
-// ... (fetch_log, fetch_status, stage_toggle are unchanged) ...
 pub fn fetch_log(repo: &Repository) -> Result<Vec<CommitInfo>, git2::Error> {
     let mut revwalk = repo.revwalk()?;
     revwalk.push_head()?;
     revwalk.set_sorting(Sort::TIME)?;
-
     let mut commits = Vec::new();
     for oid in revwalk {
         let oid = oid?;
         let commit: Commit = repo.find_commit(oid)?;
         let author = commit.author();
-
         commits.push(CommitInfo {
             id: oid.to_string(),
             message: commit.summary().unwrap_or("No commit message").to_string(),
@@ -27,11 +24,9 @@ pub fn fetch_log(repo: &Repository) -> Result<Vec<CommitInfo>, git2::Error> {
     }
     Ok(commits)
 }
-
 pub fn fetch_status(repo: &Repository) -> Result<Vec<StatusInfo>, git2::Error> {
     let mut opts = git2::StatusOptions::new();
     opts.include_untracked(true).recurse_untracked_dirs(true);
-
     let statuses = repo.statuses(Some(&mut opts))?;
     Ok(statuses
         .iter()
@@ -54,7 +49,7 @@ pub fn stage_toggle(repo: &Repository, file_path: &str) -> Result<(), git2::Erro
         || status_entry.is_index_typechange();
 
     if is_staged {
-        repo.reset_default(None, &[path])?;
+        repo.reset_default(None, [path])?;
     } else {
         index.add_path(path)?;
     }
@@ -62,17 +57,15 @@ pub fn stage_toggle(repo: &Repository, file_path: &str) -> Result<(), git2::Erro
     Ok(())
 }
 
-// CORRECTED: Returns Vec<Spans<'static>>
 fn format_diff(diff: &git2::Diff) -> Result<Vec<Spans<'static>>, git2::Error> {
     let mut lines = Vec::new();
-    diff.print(DiffFormat::Patch, |_delta, _hunk, line| {
+    diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
         let style = match line.origin() {
             '+' => Style::default().fg(Color::Green),
             '-' => Style::default().fg(Color::Red),
             'H' | 'F' => Style::default().fg(Color::Cyan),
             _ => Style::default(),
         };
-        // By using .to_string(), we create an owned String, which has a 'static lifetime.
         let content = format!(
             "{}{}",
             line.origin(),
@@ -83,8 +76,6 @@ fn format_diff(diff: &git2::Diff) -> Result<Vec<Spans<'static>>, git2::Error> {
     })?;
     Ok(lines)
 }
-
-// CORRECTED: Returns Vec<Spans<'static>>
 pub fn get_commit_diff(
     repo: &Repository,
     commit: &CommitInfo,
@@ -101,8 +92,6 @@ pub fn get_commit_diff(
     let diff = repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), None)?;
     format_diff(&diff)
 }
-
-// CORRECTED: Returns Vec<Spans<'static>>
 pub fn get_file_diff(
     repo: &Repository,
     file: &StatusInfo,
@@ -113,8 +102,6 @@ pub fn get_file_diff(
     )?;
     format_diff(&diff)
 }
-
-// create_commit is unchanged
 pub fn create_commit(repo: &Repository, message: &str) -> Result<(), git2::Error> {
     let mut index = repo.index()?;
     let oid = index.write_tree()?;
@@ -136,8 +123,6 @@ pub fn create_commit(repo: &Repository, message: &str) -> Result<(), git2::Error
     }
     Ok(())
 }
-
-// CORRECTED: No longer async. This is a blocking function.
 pub fn push_to_remote(repo: &Repository) -> Result<(), git2::Error> {
     let mut remote = repo.find_remote("origin")?;
     let mut callbacks = git2::RemoteCallbacks::new();

@@ -10,32 +10,28 @@ use tui::{
     text::{Span, Spans, Text},
     widgets::{Block, Borders, Clear, List, ListItem, Paragraph},
 };
-use tui_input::Input;
+// CORRECTED: Removed unused `tui_input::Input`
+// The `EventHandler` trait is used in app.rs, not here.
 
+// ... (The rest of the file is unchanged) ...
 pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
-    // CORRECTED: Using percentages ensures the layout adapts to any terminal size.
     let main_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(60), Constraint::Percentage(40)].as_ref())
         .split(f.size());
-
     let top_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
         .split(main_chunks[0]);
-
     draw_commits_panel(f, app, top_chunks[0]);
     draw_status_panel_with_help(f, app, top_chunks[1]);
     draw_diff_panel(f, app, main_chunks[1]);
-
-    // Draw popups on top of everything if the mode requires it
     match &app.mode {
         AppMode::CommitInput => draw_commit_popup(f, app),
         AppMode::Pushing(msg) => draw_push_popup(f, msg),
         AppMode::Normal => {}
     }
 }
-
 fn draw_commits_panel<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     let is_active = matches!(app.active_panel, ActivePanel::Commits);
     let border_style = if is_active {
@@ -48,22 +44,17 @@ fn draw_commits_panel<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     } else {
         Color::DarkGray
     };
-
     let items: Vec<ListItem> = app
         .commits
         .iter()
         .map(|c| {
             ListItem::new(vec![Spans::from(vec![
-                Span::styled(
-                    &c.id[..7], // Short hash
-                    Style::default().fg(Color::Yellow),
-                ),
+                Span::styled(&c.id[..7], Style::default().fg(Color::Yellow)),
                 Span::raw(" "),
                 Span::raw(c.message.clone()),
             ])])
         })
         .collect();
-
     let list = List::new(items)
         .block(
             Block::default()
@@ -77,10 +68,8 @@ fn draw_commits_panel<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
                 .add_modifier(Modifier::BOLD),
         )
         .highlight_symbol(">> ");
-
     f.render_stateful_widget(list, area, &mut app.commit_list_state);
 }
-
 fn draw_status_panel_with_help<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -89,7 +78,6 @@ fn draw_status_panel_with_help<B: Backend>(f: &mut Frame<B>, app: &mut App, area
     draw_status_panel(f, app, chunks[0]);
     draw_help(f, app, chunks[1]);
 }
-
 fn draw_status_panel<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     let is_active = matches!(app.active_panel, ActivePanel::Status);
     let border_style = if is_active {
@@ -102,7 +90,6 @@ fn draw_status_panel<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     } else {
         Color::DarkGray
     };
-
     let items: Vec<ListItem> = app
         .status_files
         .iter()
@@ -115,7 +102,6 @@ fn draw_status_panel<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
             ]))
         })
         .collect();
-
     let list = List::new(items)
         .block(
             Block::default()
@@ -128,10 +114,8 @@ fn draw_status_panel<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
                 .bg(highlight_bg)
                 .add_modifier(Modifier::BOLD),
         );
-
     f.render_stateful_widget(list, area, &mut app.status_list_state);
 }
-
 fn get_status_style(status: Status) -> (&'static str, Style) {
     if status.is_wt_new() {
         ("A ", Style::default().fg(Color::Green))
@@ -153,7 +137,6 @@ fn get_status_style(status: Status) -> (&'static str, Style) {
         ("? ", Style::default().fg(Color::DarkGray))
     }
 }
-
 fn draw_help<B: Backend>(f: &mut Frame<B>, app: &App, area: Rect) {
     let help_text = match app.active_panel {
         ActivePanel::Commits => Text::from("↓↑: Navigate | <Tab>: Switch | <P>: Push | q: Quit"),
@@ -165,13 +148,11 @@ fn draw_help<B: Backend>(f: &mut Frame<B>, app: &App, area: Rect) {
         Paragraph::new(help_text).block(Block::default().borders(Borders::ALL).title("Help"));
     f.render_widget(help, area);
 }
-
 fn draw_diff_panel<B: Backend>(f: &mut Frame<B>, app: &mut App, area: Rect) {
     let diff_paragraph = Paragraph::new(app.diff_text.clone())
         .block(Block::default().borders(Borders::ALL).title("Diff"));
     f.render_widget(diff_paragraph, area);
 }
-
 fn centered_rect(percent_x: u16, height: u16, r: Rect) -> Rect {
     let popup_layout = Layout::default()
         .direction(Direction::Vertical)
@@ -191,7 +172,6 @@ fn centered_rect(percent_x: u16, height: u16, r: Rect) -> Rect {
         ])
         .split(popup_layout[1])[1]
 }
-
 fn draw_commit_popup<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     let area = centered_rect(60, 3, f.size());
     let input = Paragraph::new(app.commit_input.value()).style(Style::default().fg(Color::White));
@@ -200,8 +180,13 @@ fn draw_commit_popup<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .borders(Borders::ALL);
     f.render_widget(Clear, area);
     f.render_widget(input.block(block), area);
-}
 
+    // Set the cursor manually
+    f.set_cursor(
+        area.x + app.commit_input.visual_cursor() as u16 + 1,
+        area.y + 1,
+    );
+}
 fn draw_push_popup<B: Backend>(f: &mut Frame<B>, msg: &str) {
     let area = centered_rect(50, 3, f.size());
     let text = Paragraph::new(msg).block(

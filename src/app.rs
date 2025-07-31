@@ -10,16 +10,17 @@ use tui::widgets::ListState;
 use tui_input::Input;
 use tui_input::backend::crossterm::EventHandler;
 
-// ... (Enums App, ActivePanel, AppMode remain the same) ...
 pub enum ActivePanel {
     Commits,
     Status,
 }
+
 pub enum AppMode {
     Normal,
     CommitInput,
     Pushing(String),
 }
+
 pub struct App {
     pub repo: Repository,
     pub should_quit: bool,
@@ -36,7 +37,6 @@ pub struct App {
 }
 
 impl App {
-    // new() is unchanged
     pub fn new() -> Result<Self, git2::Error> {
         let repo = Repository::open(".").expect("Couldn't open repository in current dir");
         let commits = git::fetch_log(&repo)?;
@@ -69,7 +69,6 @@ impl App {
         Ok(app)
     }
 
-    // handle_key_event is unchanged
     pub fn handle_key_event(&mut self, key: KeyEvent) {
         match self.mode {
             AppMode::Normal => self.handle_normal_mode_keys(key),
@@ -82,7 +81,6 @@ impl App {
         }
     }
 
-    // handle_normal_mode_keys is unchanged
     fn handle_normal_mode_keys(&mut self, key: KeyEvent) {
         match key.code {
             KeyCode::Char('q') => self.should_quit = true,
@@ -110,7 +108,6 @@ impl App {
         }
     }
 
-    // handle_commit_input_keys is unchanged
     fn handle_commit_input_keys(&mut self, key: KeyEvent) {
         match key.code {
             KeyCode::Enter => self.submit_commit(),
@@ -124,19 +121,16 @@ impl App {
         }
     }
 
-    // submit_commit is unchanged
     fn submit_commit(&mut self) {
         let message = self.commit_input.value();
-        if !message.is_empty() {
-            if git::create_commit(&self.repo, message).is_ok() {
-                self.commit_input.reset();
-                self.mode = AppMode::Normal;
-                self.refresh_all();
-            }
+        // CORRECTED: Collapsed the nested 'if' statement
+        if !message.is_empty() && git::create_commit(&self.repo, message).is_ok() {
+            self.commit_input.reset();
+            self.mode = AppMode::Normal;
+            self.refresh_all();
         }
     }
 
-    // CORRECTED: Uses spawn_blocking for the non-Send Repository object.
     fn initiate_push(&mut self) {
         self.mode = AppMode::Pushing("Pushing to origin...".to_string());
         let sender = self.push_feedback_sender.clone();
@@ -146,16 +140,16 @@ impl App {
             let result_msg = match Repository::open(repo_path) {
                 Ok(repo) => match git::push_to_remote(&repo) {
                     Ok(_) => "Push successful!".to_string(),
-                    Err(e) => format!("Push failed: {}", e),
+                    // CORRECTED: Use modern f-string style formatting
+                    Err(e) => format!("Push failed: {e}"),
                 },
-                Err(e) => format!("Failed to open repo: {}", e),
+                // CORRECTED: Use modern f-string style formatting
+                Err(e) => format!("Failed to open repo: {e}"),
             };
-            // Use blocking_send inside a blocking task
             let _ = sender.blocking_send(result_msg);
         });
     }
 
-    // toggle_stage_selection is unchanged
     fn toggle_stage_selection(&mut self) {
         if let Some(selected) = self.status_list_state.selected() {
             if let Some(item) = self.status_files.get(selected) {
@@ -167,7 +161,6 @@ impl App {
         }
     }
 
-    // CORRECTED: Simplified because git functions now return Vec<Spans<'static>>
     pub fn update_diff(&mut self) {
         let diff_result = match self.active_panel {
             ActivePanel::Commits => {
@@ -192,12 +185,12 @@ impl App {
         };
 
         self.diff_text = match diff_result {
-            Ok(spans) => spans, // No more conversion needed!
-            Err(e) => vec![Spans::from(format!("Could not load diff: {}", e))],
+            Ok(spans) => spans,
+            // CORRECTED: Use modern f-string style formatting
+            Err(e) => vec![Spans::from(format!("Could not load diff: {e}"))],
         };
     }
 
-    // The rest of the functions are unchanged.
     fn refresh_all(&mut self) {
         self.commits = git::fetch_log(&self.repo).unwrap_or_default();
         if self.commits.is_empty() {

@@ -12,8 +12,9 @@ use crossterm::{
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use std::{io, time::Duration};
-use tui::{Terminal, backend::CrosstermBackend};
+use std::io;
+use tui::Terminal;
+use tui::backend::CrosstermBackend; // CORRECTED: Removed unused time::Duration
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -31,7 +32,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     terminal.show_cursor()?;
 
     if let Err(err) = res {
-        println!("Error running app: {:?}", err);
+        // CORRECTED: Use modern f-string style formatting
+        println!("Error running app: {err:?}");
     }
 
     Ok(())
@@ -44,9 +46,7 @@ async fn run_app<B: tui::backend::Backend>(
     loop {
         terminal.draw(|f| draw(f, app))?;
 
-        // Use tokio::select! to handle both terminal events and async messages
         tokio::select! {
-            // Handle terminal input
             result = tokio::task::spawn_blocking(event::read) => {
                 if let Ok(Ok(Event::Key(key))) = result {
                     if key.kind == KeyEventKind::Press {
@@ -54,7 +54,6 @@ async fn run_app<B: tui::backend::Backend>(
                     }
                 }
             }
-            // Handle async push feedback
             Some(msg) = app.push_feedback_receiver.recv() => {
                 app.mode = AppMode::Pushing(msg);
             }
